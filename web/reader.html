@@ -1,0 +1,140 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Reader · book-reader</title>
+<link rel="stylesheet" href="/vendor/pdfjs/web/pdf_viewer.css">
+<link rel="stylesheet" href="/vendor/katex/katex.min.css">
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<div class="app" id="app" data-layout="split" data-rail="on" data-agent="on">
+
+  <header class="bar">
+    <a href="/" class="btn ghost" title="Library" style="text-decoration:none;padding:5px 9px">←</a>
+    <button id="toggle-rail" class="ghost" title="Documents & chats (⌘B)">☰</button>
+    <span class="title" id="title">…</span>
+
+    <span class="spacer"></span>
+    <span class="pager">
+      <button id="prev" title="Previous (←)">‹</button>
+      <input id="unit" value="1">
+      <span id="unit-total" class="muted">/ …</span>
+      <button id="next" title="Next (→)">›</button>
+      <button id="back" title="Back" hidden>↩</button>
+    </span>
+    <span class="chapter" id="chapter"></span>
+    <span class="spacer"></span>
+
+    <span class="zoom">
+      <button id="zoom-out" title="Zoom out (−)">−</button>
+      <button id="zoom-reset" class="ghost" title="Reset to fit (0)">100%</button>
+      <button id="zoom-in" title="Zoom in (+)">+</button>
+    </span>
+    <button id="toggle-theme" title="Paper or dark page">☀</button>
+    <button id="toggle-flow" title="Scroll or turn pages">⇄ Pages</button>
+    <button id="toggle-spread" title="One page, two pages, or fit to width">▯ Auto</button>
+    <button id="capture" title="Capture a figure or region (r)">⛶ Capture</button>
+    <button id="toggle-layout" title="Split / popup chat">◱</button>
+    <button id="toggle-agent" title="Show or hide the chat">💬</button>
+  </header>
+
+  <div class="main">
+
+    <aside class="rail" id="rail">
+      <section id="sec-docs">
+        <h2><span class="caret">▼</span> Documents <span class="grow"></span><span class="count" id="docs-count"></span></h2>
+        <div class="body" id="docs"></div>
+      </section>
+
+      <section id="sec-chats">
+        <h2><span class="caret">▼</span> Chats <span class="grow"></span><span class="count" id="chats-count"></span></h2>
+        <div class="body">
+          <div id="chats"></div>
+          <button class="newchat ghost" id="new-chat">+ New chat</button>
+        </div>
+      </section>
+
+      <section id="sec-context">
+        <h2><span class="caret">▼</span> Context <span class="grow"></span><span class="count" id="context-count"></span></h2>
+        <div class="body" id="context-list"></div>
+      </section>
+
+      <section id="sec-plain">
+        <h2><span class="caret">▼</span> Marks <span class="grow"></span><span class="count" id="plain-count"></span></h2>
+        <div class="body" id="plain-list"></div>
+      </section>
+
+      <section id="sec-keep">
+        <h2><span class="caret">▼</span> Highlights <span class="grow"></span><span class="count" id="keep-count"></span></h2>
+        <div class="body" id="keep-list"></div>
+      </section>
+    </aside>
+
+    <div class="stage" id="stage">
+      <div class="capture-hint">Drag a box around the figure · <kbd>Esc</kbd> to cancel</div>
+      <div id="capture-rect"></div>
+      <div id="pdf-stage" hidden><div id="pdf-doc"></div></div>
+      <div id="epub-stage" hidden></div>
+    </div>
+
+    <aside class="agent" id="agent">
+      <div class="head">
+        <span class="name" id="thread-name">New chat</span>
+        <span class="model" id="agent-model"></span>
+        <button class="ghost" id="agent-new" title="New chat">＋</button>
+        <button class="ghost" id="agent-close" title="Hide chat">✕</button>
+      </div>
+      <div class="thread" id="thread"></div>
+      <div class="composer">
+        <div class="chips" id="chips"></div>
+        <div class="box">
+          <textarea id="ask" rows="1" placeholder="Ask about what you're reading…"></textarea>
+          <button class="primary" id="send">Send</button>
+        </div>
+      </div>
+    </aside>
+
+  </div>
+</div>
+
+<div id="menu"></div>
+
+<div id="chatpop">
+  <div class="head"></div>
+  <div class="list"></div>
+</div>
+
+<div id="define">
+  <div class="term" id="define-term"></div>
+  <div class="body" id="define-body"></div>
+  <div class="acts">
+    <button class="ghost" id="define-close">Close</button>
+    <button id="define-chat">Ask more</button>
+  </div>
+</div>
+
+<div id="modal">
+  <div class="box">
+    <h3 id="modal-title">Note</h3>
+    <blockquote id="modal-quote"></blockquote>
+    <img id="modal-img" hidden>
+    <textarea id="modal-input"></textarea>
+    <div class="row">
+      <button class="ghost" id="modal-cancel">Cancel</button>
+      <button class="primary" id="modal-ok">Save</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script src="/vendor/jszip/jszip.min.js"></script>
+<script src="/vendor/pdfjs/build/pdf.js"></script>
+<script src="/vendor/epubjs/epub.js"></script>
+<script src="/vendor/katex/katex.min.js"></script>
+<script src="/vendor/katex/contrib/auto-render.min.js"></script>
+<script src="/reader.js"></script>
+</body>
+</html>

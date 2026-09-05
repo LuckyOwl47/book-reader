@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Library · book-reader</title>
+<link rel="stylesheet" href="/style.css">
+</head>
+<body class="library">
+<div class="wrap">
+  <h1>Library</h1>
+  <div class="muted">Read PDFs and EPUBs, mark passages, and ask the agent about them.</div>
+
+  <div class="toolbar">
+    <input id="path" placeholder="/absolute/path/to/book.pdf  — or drop a file below">
+    <button id="add" class="primary">Add</button>
+    <button id="scan">Scan books/</button>
+  </div>
+
+  <div id="drop" class="drop">Drop a <b>.pdf</b> or <b>.epub</b> here</div>
+
+  <div id="list" class="grid" style="margin-top:20px"></div>
+</div>
+<div id="toast"></div>
+<script src="/library.js"></script>
+</body>
+</html>

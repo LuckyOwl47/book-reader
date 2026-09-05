@@ -1,0 +1,22 @@
+{
+  "name": "book-reader",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Local PDF/EPUB reading harness with agent-readable marks and an MCP bridge",
+  "main": "server/index.js",
+  "scripts": {
+    "start": "node server/index.js",
+    "dev": "node server/index.js",
+    "mcp": "node mcp/server.mjs",
+    "ingest": "node server/cli-ingest.js"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.123.0",
+    "@modelcontextprotocol/sdk": "^1.12.0",
+    "epubjs": "^0.3.93",
+    "express": "^4.21.2",
+    "jszip": "^3.10.1",
+    "katex": "^0.18.5",
+    "pdfjs-dist": "3.11.174"
+  }
+}

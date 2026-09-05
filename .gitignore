@@ -1,0 +1,8 @@
+node_modules/
+books/*
+!books/.gitkeep
+library/*
+!library/.gitkeep
+_mcp-test*.mjs
+.env
+.DS_Store

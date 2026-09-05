@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "book-reader": {
+      "command": "node",
+      "args": ["mcp/server.mjs"]
+    }
+  }
+}
