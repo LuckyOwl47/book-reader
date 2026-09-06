@@ -69,5 +69,6 @@ npm run ingest     # ingest anything new in books/
 ```
 
 The in-app chat needs `ANTHROPIC_API_KEY` in `.env` (see `.env.example`); it calls
-`claude-opus-5` with vision, and renders replies through KaTeX. Everything else works
-without a key.
+`claude-opus-5` with vision by default, and renders replies through KaTeX. Everything else
+works without a key. The chat panel has a model picker (`server/models.js`) — add
+`OPENAI_API_KEY` too and it also offers GPT models, routed through `server/providers/`.

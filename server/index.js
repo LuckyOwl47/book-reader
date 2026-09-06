@@ -250,6 +250,7 @@ app.post('/api/books/:slug/chats/:id/messages', async (req, res) => {
     navigate = false,
     nearby = false,
     recent = 0,
+    model,
   } = req.body || {};
 
   let thread = chats.appendMessage(slug, req.params.id, { role: 'user', blocks });
@@ -274,6 +275,7 @@ app.post('/api/books/:slug/chats/:id/messages', async (req, res) => {
         navigate,
         nearby,
         recent: Math.min(Number(recent) || 0, 12),
+        model: model || agent.MODEL,
       },
       {
         onText: (t) => send('text', { t }),
@@ -285,7 +287,7 @@ app.post('/api/books/:slug/chats/:id/messages', async (req, res) => {
       blocks: [{ type: 'text', text: result.text }],
       thinking: result.thinking || undefined,
       usage: result.usage,
-      model: agent.MODEL,
+      model: result.model,
     });
     send('done', { usage: result.usage, stopReason: result.stopReason });
   } catch (err) {
@@ -311,7 +313,12 @@ app.post('/api/books/:slug/define', wrap(async (req, res) => {
 
 // ---- is there a model behind the chat at all?
 app.get('/api/agent/status', (req, res) => {
-  res.json({ available: agent.hasCredentials(), model: agent.MODEL });
+  const models = agent.MODELS.map((m) => ({ ...m, available: agent.hasCredentials(m.id) }));
+  res.json({
+    available: models.some((m) => m.available),
+    model: agent.MODEL,
+    models,
+  });
 });
 
 app.listen(PORT, () => {

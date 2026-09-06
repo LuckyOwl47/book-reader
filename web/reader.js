@@ -19,6 +19,8 @@ const state = {
   brief: localStorage.getItem('brief') === '1',
   streaming: false,
   agentAvailable: false,
+  models: [],          // [{id, label, provider, vision, available}] from /api/agent/status
+  model: localStorage.getItem('model') || '',
   selection: null,     // {text, unit, cfi} | {clipId, dataUrl, unit, nearby}
 };
 
@@ -1851,11 +1853,32 @@ function renderChips() {
   });
 }
 
+function renderModelSelect() {
+  const sel = $('#model-select');
+  if (!state.models.length) {
+    sel.hidden = true;
+    return;
+  }
+  sel.hidden = false;
+  sel.innerHTML = state.models
+    .map(
+      (m) =>
+        `<option value="${esc(m.id)}" ${m.available ? '' : 'disabled'} ${m.id === state.model ? 'selected' : ''}>${esc(m.label)}${m.available ? '' : ' (no key)'}</option>`
+    )
+    .join('');
+  sel.onchange = () => {
+    state.model = sel.value;
+    localStorage.setItem('model', state.model);
+  };
+}
+
 async function send(opts = {}) {
   if (state.streaming) return;
   const text = (opts.text !== undefined ? opts.text : $('#ask').value).trim();
   if (!text && !state.pending.length) return;
-  if (!state.agentAvailable) return toast('No model connected — add ANTHROPIC_API_KEY to .env', 4000);
+  const chosen = state.models.find((m) => m.id === state.model);
+  if (!chosen || !chosen.available)
+    return toast('That model has no API key connected — add one to .env or pick another model', 4000);
 
   if (!state.thread) {
     const t = await jpost(`/api/books/${SLUG}/chats`, { unit: state.engine.current() });
@@ -1900,6 +1923,7 @@ async function send(opts = {}) {
         recent: state.recent ? RECENT_MARKS : 0,
         brief: state.brief,
         navigate: !!opts.navigate,
+        model: state.model,
       }),
     });
     const reader = res.body.getReader();
@@ -2259,9 +2283,13 @@ document.addEventListener('keydown', onKey);
   $('#title').title = state.book.title;
   $('#unit-total').textContent = `/ ${state.book.unitCount}`;
 
-  const status = await api('/api/agent/status').catch(() => ({ available: false }));
+  const status = await api('/api/agent/status').catch(() => ({ available: false, models: [] }));
   state.agentAvailable = status.available;
-  $('#agent-model').textContent = status.available ? status.model.replace('claude-', '') : 'offline';
+  state.models = status.models || [];
+  if (!state.models.some((m) => m.id === state.model)) {
+    state.model = (state.models.find((m) => m.available) || state.models[0] || { id: status.model }).id;
+  }
+  renderModelSelect();
 
   state.engine = state.book.format === 'pdf' ? new PdfEngine() : new EpubEngine();
   await state.engine.init();

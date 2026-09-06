@@ -1,13 +1,12 @@
 'use strict';
-const fs = require('fs');
-const os = require('os');
-const path = require('path');
-const Anthropic = require('@anthropic-ai/sdk');
 const lib = require('./library');
 const related = require('./related');
 const chats = require('./chats');
+const models = require('./models');
+const anthropicProvider = require('./providers/anthropic');
+const openaiProvider = require('./providers/openai');
 
-const MODEL = process.env.BOOK_READER_MODEL || 'claude-opus-5';
+const MODEL = models.DEFAULT_MODEL;
 const MAX_PAGE_CHARS = 6000;
 const MAX_NEARBY_CHARS = 3000;
 const MAX_RECENT_CHARS = 600;
@@ -25,26 +24,23 @@ Your last paragraph is load-bearing too. End on substance, mid-thought if need b
 - The panel renders LaTeX through KaTeX. Use $...$ for inline maths and $$...$$ on its own lines for displayed equations, and write anything with a fraction, an exponent, a subscript, an integral or a dot-derivative that way. Keep short bare symbols as plain text - saying x, r or f(x) mid-sentence needs no delimiters. KaTeX is maths-only: no \\text{} paragraphs, no \\begin{document}.
 - The reader is mid-page and mid-thought. Match their level: if they are working through a derivation, work through it with them rather than summarizing it from above.`;
 
-function hasCredentials() {
-  if (process.env.ANTHROPIC_API_KEY || process.env.ANTHROPIC_AUTH_TOKEN) return true;
+function providerFor(modelId) {
+  const def = models.byId(modelId);
+  if (!def) {
+    const err = new Error(`Unknown model "${modelId}".`);
+    err.code = 'UNKNOWN_MODEL';
+    throw err;
+  }
+  return def.provider === 'openai' ? openaiProvider : anthropicProvider;
+}
+
+/** Whether the provider behind `modelId` (default model if omitted) has credentials set. */
+function hasCredentials(modelId = models.DEFAULT_MODEL) {
   try {
-    return fs.existsSync(path.join(os.homedir(), '.config', 'anthropic'));
+    return providerFor(modelId).hasCredentials();
   } catch {
     return false;
   }
-}
-
-let client = null;
-function getClient() {
-  if (!hasCredentials()) {
-    const err = new Error(
-      'No Anthropic credentials. Put ANTHROPIC_API_KEY=sk-ant-... in .env at the project root and restart, or run `ant auth login`.'
-    );
-    err.code = 'NO_CREDENTIALS';
-    throw err;
-  }
-  if (!client) client = new Anthropic();
-  return client;
 }
 
 /** The stable half of the prompt — cheap to cache, changes only per book. */
@@ -253,11 +249,21 @@ function lastUserQuery(thread) {
 }
 
 async function streamTurn(
-  { slug, thread, unit, includePage = true, brief = false, navigate = false, nearby = false, recent = 0 },
+  {
+    slug,
+    thread,
+    unit,
+    includePage = true,
+    brief = false,
+    navigate = false,
+    nearby = false,
+    recent = 0,
+    model = models.DEFAULT_MODEL,
+  },
   handlers = {}
 ) {
   const meta = lib.getBook(slug);
-  const anthropic = getClient();
+  const provider = providerFor(model);
 
   const messages = buildMessages(slug, meta, thread, {
     anchors: thread.anchors,
@@ -283,54 +289,34 @@ async function streamTurn(
     messages.push({ role: 'system', content: `${NAVIGATE}\n\nShortlist:\n\n${list}` });
   }
 
-  const stream = anthropic.messages.stream({
-    model: MODEL,
-    max_tokens: 16000,
-    thinking: { type: 'adaptive', display: 'summarized' },
-    cache_control: { type: 'ephemeral' },
-    system: [
-      { type: 'text', text: SYSTEM },
-      { type: 'text', text: bookFacts(meta, unit) },
-    ],
-    messages,
-  });
-
-  stream.on('text', (delta) => handlers.onText && handlers.onText(delta));
-  stream.on('thinking', (delta) => handlers.onThinking && handlers.onThinking(delta));
-
-  const final = await stream.finalMessage();
-  const text = final.content
-    .filter((b) => b.type === 'text')
-    .map((b) => b.text)
-    .join('\n');
-  const thinking = final.content
-    .filter((b) => b.type === 'thinking')
-    .map((b) => b.thinking)
-    .filter(Boolean)
-    .join('\n');
-  return { text, thinking, usage: final.usage, stopReason: final.stop_reason };
+  const bookText = bookFacts(meta, unit);
+  const result = await provider.stream(
+    {
+      model,
+      systemBlocks: [
+        { type: 'text', text: SYSTEM },
+        { type: 'text', text: bookText },
+      ],
+      systemText: `${SYSTEM}\n\n${bookText}`,
+      messages,
+      maxTokens: 16000,
+    },
+    handlers
+  );
+  return { ...result, model };
 }
 
 /** A short definition of a term, in the context of the sentence it came from. */
-async function define({ slug, term, sentence, unit }) {
+async function define({ slug, term, sentence, unit, model = models.DEFAULT_MODEL }) {
   const meta = lib.getBook(slug);
-  const anthropic = getClient();
-  const response = await anthropic.messages.create({
-    model: MODEL,
-    max_tokens: 1000,
-    output_config: { effort: 'low' },
+  const provider = providerFor(model);
+  const text = await provider.complete({
+    model,
+    maxTokens: 1000,
     system: `You define terms for someone reading "${meta.title}"${meta.author ? ` by ${meta.author}` : ''}. Give the meaning the term carries in this book and this field — two or three sentences, no preamble, no restating the question. If the term is standard notation or a named result, say what it denotes and where it comes from. If the sentence is too little to disambiguate, give the most likely reading and say what you assumed.`,
-    messages: [
-      {
-        role: 'user',
-        content: `Term: "${term}"\n\nThe sentence it appears in, on ${lib.unitLabel(meta, unit)}:\n"""\n${sentence}\n"""`,
-      },
-    ],
+    prompt: `Term: "${term}"\n\nThe sentence it appears in, on ${lib.unitLabel(meta, unit)}:\n"""\n${sentence}\n"""`,
   });
-  return response.content
-    .filter((b) => b.type === 'text')
-    .map((b) => b.text)
-    .join('\n');
+  return text;
 }
 
-module.exports = { streamTurn, define, hasCredentials, MODEL };
+module.exports = { streamTurn, define, hasCredentials, MODEL, MODELS: models.MODELS };
