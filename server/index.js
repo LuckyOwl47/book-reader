@@ -296,6 +296,7 @@ app.post('/api/books/:slug/chats/:id/messages', async (req, res) => {
       role: 'assistant',
       blocks: [{ type: 'text', text: `_${err.message}_` }],
       error: true,
+      model: model || agent.MODEL,
     });
     send('error', { message: err.message, code: err.code || null });
   }

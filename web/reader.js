@@ -1590,22 +1590,50 @@ function renderThread() {
 
   // A missing key stops new in-app answers, but must never hide what is already
   // there — the Claude Code sidebar writes into these same threads.
-  if (!messages.length || !state.agentAvailable) {
+  const ready = modelReady();
+  if (!messages.length || !ready) {
     const note = document.createElement('div');
     note.className = 'empty';
-    note.innerHTML = state.agentAvailable
+    note.innerHTML = ready
       ? 'Right-click a passage or capture a figure, then ask about it.<br><br><kbd>r</kbd> capture a region &middot; <kbd>p</kbd> pin &middot; <kbd>c</kbd> chat'
-      : 'Replies in this panel are off: no <code>ANTHROPIC_API_KEY</code>. Put one in <code>.env</code> at the project root and restart the server.<br><br>Marking still works, and the agent in your Claude Code sidebar reads and writes these same threads.';
+      : missingKeyNote();
     box.appendChild(note);
   }
   box.scrollTop = box.scrollHeight;
 
   const ask = $('#ask');
-  ask.disabled = !state.agentAvailable;
-  $('#send').disabled = !state.agentAvailable;
-  ask.placeholder = state.agentAvailable
+  ask.disabled = !ready;
+  $('#send').disabled = !ready;
+  const cur = currentModel();
+  ask.placeholder = ready
     ? 'Ask about what you are reading...'
-    : 'Add ANTHROPIC_API_KEY to .env to chat here';
+    : cur
+      ? `Add ${cur.envVar} to .env to chat with ${cur.label}`
+      : 'Add an API key to .env to chat here';
+}
+
+/**
+ * Why this panel cannot answer: either nothing is configured at all, or the model
+ * the picker is on belongs to a provider whose key is missing while another's is set.
+ */
+function missingKeyNote() {
+  const cur = currentModel();
+  const tail =
+    '<br><br>Marking still works, and the agent in your Claude Code sidebar reads and writes these same threads.';
+  if (state.agentAvailable && cur) {
+    return `Replies from ${esc(cur.label)} are off: no <code>${esc(cur.envVar)}</code>. Put one in <code>.env</code> at the project root and restart the server, or pick another model above.${tail}`;
+  }
+  const keys = [...new Set(state.models.map((m) => m.envVar))];
+  const list = keys.length
+    ? keys.map((k) => `<code>${esc(k)}</code>`).join(' or ')
+    : '<code>ANTHROPIC_API_KEY</code>';
+  return `Replies in this panel are off: no API key. Put ${list} in <code>.env</code> at the project root and restart the server.${tail}`;
+}
+
+/** Display name for a model id. Turns saved before the picker existed were all Claude. */
+function modelLabel(id) {
+  const m = state.models.find((x) => x.id === id);
+  return m ? m.label : id || 'Claude';
 }
 
 function renderMessage(m) {
@@ -1613,7 +1641,7 @@ function renderMessage(m) {
   el.className = 'msg ' + m.role + (m.error ? ' error' : '');
   const who = document.createElement('div');
   who.className = 'who';
-  who.textContent = m.role === 'user' ? 'You' : 'Claude';
+  who.textContent = m.role === 'user' ? 'You' : modelLabel(m.model);
   el.appendChild(who);
 
   if (m.role === 'user') {
@@ -1853,6 +1881,15 @@ function renderChips() {
   });
 }
 
+/** The model row the picker is currently on, and whether its key is actually set. */
+function currentModel() {
+  return state.models.find((m) => m.id === state.model) || null;
+}
+function modelReady() {
+  const m = currentModel();
+  return !!(m && m.available);
+}
+
 function renderModelSelect() {
   const sel = $('#model-select');
   if (!state.models.length) {
@@ -1869,6 +1906,7 @@ function renderModelSelect() {
   sel.onchange = () => {
     state.model = sel.value;
     localStorage.setItem('model', state.model);
+    renderThread(); // the composer and its note track the model you picked
   };
 }
 
@@ -1876,9 +1914,10 @@ async function send(opts = {}) {
   if (state.streaming) return;
   const text = (opts.text !== undefined ? opts.text : $('#ask').value).trim();
   if (!text && !state.pending.length) return;
-  const chosen = state.models.find((m) => m.id === state.model);
-  if (!chosen || !chosen.available)
-    return toast('That model has no API key connected — add one to .env or pick another model', 4000);
+  if (!modelReady()) {
+    const cur = currentModel();
+    return toast(cur ? `${cur.label} needs ${cur.envVar} in .env` : 'No model connected — add an API key to .env', 4000);
+  }
 
   if (!state.thread) {
     const t = await jpost(`/api/books/${SLUG}/chats`, { unit: state.engine.current() });
@@ -1899,7 +1938,7 @@ async function send(opts = {}) {
 
   const reply = document.createElement('div');
   reply.className = 'msg assistant';
-  reply.innerHTML = '<div class="who">Claude</div><details class="thinking" hidden><summary>thinking…</summary><div class="body"></div></details><div class="md muted">…</div>';
+  reply.innerHTML = `<div class="who">${esc(modelLabel(state.model))}</div><details class="thinking" hidden><summary>thinking…</summary><div class="body"></div></details><div class="md muted">…</div>`;
   box.appendChild(reply);
   box.scrollTop = box.scrollHeight;
 
@@ -2286,7 +2325,9 @@ document.addEventListener('keydown', onKey);
   const status = await api('/api/agent/status').catch(() => ({ available: false, models: [] }));
   state.agentAvailable = status.available;
   state.models = status.models || [];
-  if (!state.models.some((m) => m.id === state.model)) {
+  // Land on a model that can actually answer: keep their choice only if its key is set,
+  // so a reader with just OPENAI_API_KEY opens on a GPT model rather than a dead Claude one.
+  if (!state.models.some((m) => m.id === state.model && m.available)) {
     state.model = (state.models.find((m) => m.available) || state.models[0] || { id: status.model }).id;
   }
   renderModelSelect();
