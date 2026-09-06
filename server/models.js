@@ -7,6 +7,7 @@ const MODELS = [
   { id: 'claude-opus-5', label: 'Claude Opus 5', provider: 'anthropic', vision: true, envVar: 'ANTHROPIC_API_KEY' },
   { id: 'claude-sonnet-5', label: 'Claude Sonnet 5', provider: 'anthropic', vision: true, envVar: 'ANTHROPIC_API_KEY' },
   { id: 'claude-haiku-4-5-20251001', label: 'Claude Haiku 4.5', provider: 'anthropic', vision: true, envVar: 'ANTHROPIC_API_KEY' },
+  { id: 'gpt-5.6-sol', label: 'GPT-5.6 Sol', provider: 'openai', vision: true, envVar: 'OPENAI_API_KEY' },
   { id: 'gpt-5.1', label: 'GPT-5.1', provider: 'openai', vision: true, envVar: 'OPENAI_API_KEY' },
   { id: 'gpt-5.1-mini', label: 'GPT-5.1 mini', provider: 'openai', vision: true, envVar: 'OPENAI_API_KEY' },
 ];
